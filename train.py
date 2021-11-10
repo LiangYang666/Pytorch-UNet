@@ -11,13 +11,15 @@ from torch import optim
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
-from utils.data_loading import BasicDataset, CarvanaDataset
+from utils.data_loading import BasicDataset, CarvanaDataset, DLRSDDatasets
 from utils.dice_score import dice_loss
 from evaluate import evaluate
 from unet import UNet
 
-dir_img = Path('./data/imgs/')
-dir_mask = Path('./data/masks/')
+# dir_img = Path('./data/imgs/')
+# dir_mask = Path('./data/masks/')
+dir_img = '/media/D_4TB/YL_4TB/Segmentation/data/DLRSD/Images'
+dir_mask = '/media/D_4TB/YL_4TB/Segmentation/data/DLRSD/masks'
 dir_checkpoint = Path('./checkpoints/')
 
 
@@ -31,10 +33,11 @@ def train_net(net,
               img_scale: float = 0.5,
               amp: bool = False):
     # 1. Create dataset
-    try:
-        dataset = CarvanaDataset(dir_img, dir_mask, img_scale)
-    except (AssertionError, RuntimeError):
-        dataset = BasicDataset(dir_img, dir_mask, img_scale)
+    # try:
+    #     dataset = CarvanaDataset(dir_img, dir_mask, img_scale)
+    # except (AssertionError, RuntimeError):
+    #     dataset = BasicDataset(dir_img, dir_mask, img_scale)
+    dataset = DLRSDDatasets(dir_img, dir_mask, img_scale)
 
     # 2. Split into train / validation partitions
     n_val = int(len(dataset) * val_percent)
@@ -130,7 +133,7 @@ def train_net(net,
                             'images': wandb.Image(images[0].cpu()),
                             'masks': {
                                 'true': wandb.Image(true_masks[0].float().cpu()),
-                                'pred': wandb.Image(torch.softmax(masks_pred, dim=1)[0].float().cpu()),
+                                # 'pred': wandb.Image(torch.softmax(masks_pred, dim=1)[0].float().cpu()),
                             },
                             'step': global_step,
                             'epoch': epoch,
@@ -168,7 +171,7 @@ if __name__ == '__main__':
     # Change here to adapt to your data
     # n_channels=3 for RGB images
     # n_classes is the number of probabilities you want to get per pixel
-    net = UNet(n_channels=3, n_classes=2, bilinear=True)
+    net = UNet(n_channels=3, n_classes=18, bilinear=True)
 
     logging.info(f'Network:\n'
                  f'\t{net.n_channels} input channels\n'
