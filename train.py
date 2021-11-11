@@ -83,7 +83,7 @@ def train_net(net,
                 images = batch['image']
                 true_masks = batch['mask']
 
-                assert images.shape[1] == net.n_channels, \
+                assert images.shape[1] == net.n_channels if hasattr(net, 'n_channels') else net.module.n_channels, \
                     f'Network has been defined with {net.n_channels} input channels, ' \
                     f'but loaded images have {images.shape[1]} channels. Please check that ' \
                     'the images are loaded correctly.'
@@ -95,7 +95,9 @@ def train_net(net,
                     masks_pred = net(images)
                     loss = criterion(masks_pred, true_masks) \
                            + dice_loss(F.softmax(masks_pred, dim=1).float(),
-                                       F.one_hot(true_masks, net.n_classes).permute(0, 3, 1, 2).float(),
+                                       F.one_hot(true_masks,
+                                                 net.n_classes if hasattr(net, 'n_channels') else net.module.n_classes)
+                                       .permute(0, 3, 1, 2).float(),
                                        multiclass=True)
 
                 optimizer.zero_grad(set_to_none=True)
@@ -148,8 +150,8 @@ def train_net(net,
 
 def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks')
-    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=5, help='Number of epochs')
-    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=1, help='Batch size')
+    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=5000, help='Number of epochs')
+    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=200, help='Batch size')
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=0.00001,
                         help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
@@ -182,6 +184,7 @@ if __name__ == '__main__':
         net.load_state_dict(torch.load(args.load, map_location=device))
         logging.info(f'Model loaded from {args.load}')
 
+    net = torch.nn.DataParallel(net)
     net.to(device=device)
     try:
         train_net(net=net,
